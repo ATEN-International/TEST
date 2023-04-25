@@ -1,3 +1,7 @@
+# -*- coding:utf-8 -*-
+
+import re
+
 from .config import Settings
 from .tools import Tools
 
@@ -19,7 +23,7 @@ class TextParagraph(object):
 class TextEditor(object):
     text = []
     # _text_limit = 1500
-    _text_limit = Settings.text_limit
+    __text_limit = Settings.text_limit
 
     # _support_file_type = [".txt"]
     _support_file_type = Settings.support_file_type
@@ -27,7 +31,8 @@ class TextEditor(object):
     def __init__(self, text:list) -> None:
         self.text = text
 
-    def _check_reserved_word(self, text:str) -> str:
+
+    def __check_reserved_word(self, text:str) -> str:
         if "</phoneme>" in text: # workaround
             return text
         if "<break" in text: # workaround
@@ -52,14 +57,14 @@ class TextEditor(object):
         return text
 
 
-    def _check_text_length(self, text:str) -> list:
+    def __check_text_length(self, text:str) -> list:
         """
         檢查傳入的文字有沒有超出限制，如果超出限制會以標點符號分割字串
         """
         result = []
         text_length = len(text)
         merge_start_position = 0
-        split_position = self._text_limit
+        split_position = self.__text_limit
         punctuation = ['。', '！', '!', '？', '?', '\n', '\t', '，', ',', '、', '　', ' ', '（', '）', '(', ')', '「', '」', '；', '﹔']
 
         while(split_position < text_length):
@@ -75,36 +80,36 @@ class TextEditor(object):
             # 實際分割點(標點符號位置)設為新分割點
             merge_start_position = split_position
 
-            split_position += self._text_limit
+            split_position += self.__text_limit
         # result.append(text[merge_start_position:])
         result.append(TextParagraph(text[merge_start_position:]))
         return result
 
 
-    def _add_phoneme(self, text:str, ph:str):
+    def __add_phoneme(self, text:str, ph:str):
         """
         text：加入的文字\n
          ph ：指定的發音
         """
-        self._is_ssml_task = True
+
         alphabet = "bopomo"
         lang = "TW"
-        return f'<phoneme alphabet="{alphabet}" lang="{lang}" ph="{ph}">{self._check_reserved_word(text)}</phoneme>'
+        return f'<phoneme alphabet="{alphabet}" lang="{lang}" ph="{ph}">{self.__check_reserved_word(text)}</phoneme>'
 
 
-    def _add_break(self, break_time:int):
+    def __add_break(self, break_time:int):
         """
         break_time：停頓的時間 (最大值為5000，單位ms)\n
         若輸入值大於上限值，以最大值替代
         """
-        self._is_ssml_task = True
+
         if break_time > 5000:
             # print("[DEBUG] Out of range, break_time max value = 5000")
             break_time = 5000
         return f'<break time="{break_time}ms"/>'
 
 
-    def _add_prosody(self, text:str, rate:float, pitch:int, volume:float):
+    def __add_prosody(self, text:str, rate:float, pitch:int, volume:float):
         """
         rate    : 調整語速, 最小值=0.8, 最大值=1.2\n
         pitch   : 調整音調, 最小值=-2, 最大值=2\n
@@ -124,8 +129,6 @@ class TextEditor(object):
         volume_max = 6.0
         volume_min = -6.0
         volume_default = 0.0
-
-        self._is_ssml_task = True
 
         if type(pitch) != int:
             # print("[DEBUG] Pitch type wrong")
@@ -167,7 +170,7 @@ class TextEditor(object):
                 else:
                     tag_volume = f' volume="{volume}dB"'
 
-        return f'<prosody{tag_rate}{tag_pitch}{tag_volume}>{self._check_reserved_word(text)}</prosody>'
+        return f'<prosody{tag_rate}{tag_pitch}{tag_volume}>{self.__check_reserved_word(text)}</prosody>'
 
 
     # ---------- Text ----------
@@ -179,16 +182,83 @@ class TextEditor(object):
         if type(position) != int:
             raise TypeError("Parameter 'position(int)' type error.")
 
-        text_list = self._check_text_length(text)
+        text_list = self.__check_text_length(text)
 
         if position == -1:
             position = len(self.text) + 1
 
         for text_each in text_list:
-            text_each.update(self._check_reserved_word(text_each._text))
+            text_each.update(self.__check_reserved_word(text_each._text))
 
         self.text[position:position] = text_list
 
+
+    def add_webpage_text(self, text:str, rate:float=1.0, pitch:int=0, volume:float=0.0, position = -1):
+        """
+        rate    : 調整語速, 最小值=0.8, 最大值=1.2\n
+        pitch   : 調整音調, 最小值=-2, 最大值=2\n
+        volume  : 調整音量, 最小值=-6, 最大值=6\n
+        若輸入超過範圍值，皆以最大/最小值替代\n
+        position：文字加入的位置，position = -1 或大於段落總數時會加在最後\n
+        """
+        if type(rate) != float:
+            raise TypeError("Parameter 'rate(float)' type error.")
+        if type(pitch) != int:
+            raise TypeError("Parameter 'pitch(int)' type error.")
+        if type(volume) != float:
+            raise TypeError("Parameter 'volume(float)' type error.")
+        if type(position) != int:
+            raise TypeError("Parameter 'position(int)' type error.")
+
+        if position == -1:
+            position = len(self.text) + 1
+
+        # 現階段有可能轉換2次保留字
+        text = self.__check_reserved_word(text)
+        text_list = self.__check_text_length(text)
+
+        # limit = 200
+        count = 0
+        for text_each in text_list:
+            tags = [(match.start(), match.end()) for match in re.finditer(r'\[:(.*?)\]', text_each._text)]
+            length = len(text_each._text)
+            for tag in tags:
+                if text_each._text[tag[1]-2] == "秒":
+                    length += 15 # ssml break tag 長度最大為22 比原本多15
+                else:
+                    length += 51 # ssml break tag 長度最大(單一文字)為58 比原本多51
+
+                # if length > limit:
+                if length > self.__text_limit:
+                    text_list[count+1:count+1] = [TextParagraph(text_each._text[tag[1]:])]
+                    text_each._text = text_each._text[:tag[1]]
+                    break
+            count += 1
+
+            # rematch
+            shift = 0
+            new_tag = ""
+            new_text = text_each._text
+            for rematch in re.finditer(r'\[:(.*?)\]', text_each._text): # 作用與 for tag in tags: 相同
+                if text_each._text[rematch.end()-2] == "秒":
+                    break_time = float(text_each._text[rematch.start()+2:rematch.end()-2]) * 1000
+                    new_tag = self.__add_break(int(break_time))
+                    new_text = new_text[:rematch.start()+shift] + new_tag + new_text[rematch.end()+shift:]
+                else:
+                    if text_each._text[rematch.start()-1] == ']':
+                        new_tag = ""
+                        # print("!!")
+                        continue
+                    word = text_each._text[rematch.start()-1]
+                    ph = text_each._text[rematch.start()+2:rematch.end()-1]
+                    new_tag = self.__add_phoneme(word, ph)
+                    new_text = new_text[:rematch.start()+shift-1] + new_tag + new_text[rematch.end()+shift:]
+                    shift -= 1
+                shift += len(new_tag) - rematch.end() + rematch.start()
+
+            text_each.update(new_text)
+
+        self.text[position:position] = text_list
 
     def get_text(self) -> list:
         if len(self.text) < 1:
@@ -241,14 +311,13 @@ class TextEditor(object):
         if type(position) != int:
             raise TypeError("Parameter 'position(int)' type error.")
 
-        self._is_ssml_task = True
-        text_list = self._check_text_length(text)
+        text_list = self.__check_text_length(text)
 
         if position == -1:
             position = len(self.text) + 1
 
         for text_each in text_list:
-            text_each.update(self._add_phoneme(text_each._text, ph))
+            text_each.update(self.__add_phoneme(text_each._text, ph))
 
         self.text[position:position] = text_list
 
@@ -262,12 +331,10 @@ class TextEditor(object):
         if type(position) != int:
             raise TypeError("Parameter 'position(int)' type error.")
 
-        self._is_ssml_task = True
-
         if position == -1:
             position = len(self.text) + 1
 
-        self.text.insert(position, TextParagraph(self._add_break(break_time)))
+        self.text.insert(position, TextParagraph(self.__add_break(break_time)))
 
 
     def insert_prosody(self, text:str, rate:float=1.0, pitch:int=0, volume:float=0.0, position = -1):
@@ -287,15 +354,13 @@ class TextEditor(object):
         if type(position) != int:
             raise TypeError("Parameter 'position(int)' type error.")
 
-        self._is_ssml_task = True
-
-        text_list = self._check_text_length(text)
+        text_list = self.__check_text_length(text)
 
         if position == -1:
             position = len(self.text) + 1
 
         for text_each in text_list:
-            text_each.update(self._add_prosody(text_each._text, rate, pitch, volume))
+            text_each.update(self.__add_prosody(text_each._text, rate, pitch, volume))
 
         self.text[position:position] = text_list
 
@@ -319,16 +384,13 @@ class TextEditor(object):
         if type(position) != int:
             raise TypeError("Parameter 'position(int)' type error.")
 
-
-        self._is_ssml_task = True
-
-        text_list = self._check_text_length(text)
+        text_list = self.__check_text_length(text)
 
         if position == -1:
             position = len(self.text) + 1
 
         for text_each in text_list:
-            text_each.update(self._add_prosody(self._add_phoneme(text_each._text, ph), rate, pitch, volume))
+            text_each.update(self.__add_prosody(self.__add_phoneme(text_each._text, ph), rate, pitch, volume))
         self.text[position:position] = text_list
 
 
