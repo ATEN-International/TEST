@@ -279,10 +279,11 @@ class VoiceConverter(object):
 
     # ---------- Task infomation ----------
     def get_task_list(self) -> list:
+        result = []
         if len(self._task_list) < 1:
             print("[INFO] Task list is empty.")
+            return result
 
-        result = []
         for task in self._task_list:
             result.append({"id": task['id'],"text": task['text']})
         return result
@@ -311,8 +312,9 @@ class VoiceConverter(object):
 
         task_number = len(self._task_list)
         task_count = 1
+        result_json = {}
         for task in self._task_list:
-            result_json = {"code": "task start", "code": 50301}
+            result_json = {"data": "task start", "code": 50301}
             while result_json['code'] == 50301:
                 print(f"Waitting for server...")
 
@@ -331,7 +333,7 @@ class VoiceConverter(object):
 
                 status = ConverterStatus.ConverVoiceStart
                 detail = f"Start Convert: ({task_count}/{task_number})"
-                task_data.append({"id": task['id'], "data": "null"})
+                task_data.append({"id": task['id'], "data": None})
             else:
                 status = ConverterStatus.ConverVoiceFail
                 if result_json['code'] == 50301:
@@ -363,7 +365,7 @@ class VoiceConverter(object):
             return ConverterResult(status, task_data, detail, error_msg)
 
         if len(task_data) == 0:
-            task_data.append({"id": "0", "data": "null"})
+            task_data.append({"id": "0", "data": None})
 
         # status = ConverterStatus.ConverVoiceFail
         return ConverterResult(ConverterStatus.ConverVoiceFail, task_data, "", error_msg)
@@ -403,7 +405,7 @@ class VoiceConverter(object):
                 error_msg = self._error_code_handler(result_json)
                 status = ConverterStatus.ConverVoiceFail
 
-            task_data.append({"id": task['id'], "data": "null"})
+            task_data.append({"id": task['id'], "data": None})
             task_count += 1
         return ConverterResult(status, task_data, detail, error_msg)
 
@@ -417,10 +419,10 @@ class VoiceConverter(object):
         for task in self._task_list:
             result_json = self._get_task_audio(task['id'])
 
-            if result_json["code"] != 20001:
+            if result_json['code'] != 20001:
                 error_msg = self._error_code_handler(result_json)
-                task_data.append({"id": task['id'], "data": "null"})
+                task_data.append({"id": task['id'], "data": None})
                 return ConverterResult(ConverterStatus.GetSpeechFail, task_data, "", error_msg)
 
-            task_data.append({"id": task['id'], "data": result_json["data"]})
+            task_data.append({"id": task['id'], "data": result_json['data']})
         return ConverterResult(ConverterStatus.GetSpeechSuccess, task_data, "", error_msg)
