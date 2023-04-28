@@ -5,7 +5,7 @@ import time
 from .enums import Voice, ConverterStatus
 from .config import ConverterConfig, Settings
 from .textedit import TextEditor
-from .tools import Tools
+from .units import Tools
 
 status_and_error_codes = {
     20001: '成功',

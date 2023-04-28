@@ -3,7 +3,7 @@
 import re
 
 from .config import Settings
-from .tools import Tools
+from .units import Tools
 
 class TextParagraph(object):
     _text:str
