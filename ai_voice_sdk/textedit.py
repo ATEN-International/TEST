@@ -22,10 +22,7 @@ class TextParagraph(object):
 
 class TextEditor(object):
     text = []
-    # _text_limit = 1500
     __text_limit = Settings.text_limit
-
-    # _support_file_type = [".txt"]
     _support_file_type = Settings.support_file_type
 
     def __init__(self, text:list) -> None:
@@ -33,12 +30,6 @@ class TextEditor(object):
 
 
     def __check_reserved_word(self, text:str) -> str:
-        if "</phoneme>" in text: # workaround
-            return text
-        if "<break" in text: # workaround
-            return text
-        if "</prosody>" in text: # workaround
-            return text
         if '"' in text:
             # print("[DEBUG] Find reserved_word " + '"')
             text = text.replace('"', "&quot;")
@@ -57,32 +48,56 @@ class TextEditor(object):
         return text
 
 
+    def __count_reserved_word(self, text:str) -> int:
+        count = 0
+        reserved_word_list = [r'"', r'&', r"'", r'<', r'>']
+        for key_word in reserved_word_list:
+            count += len(re.findall(key_word, text))
+
+        return count*6
+
+
     def __check_text_length(self, text:str) -> list:
         """
         檢查傳入的文字有沒有超出限制，如果超出限制會以標點符號分割字串
         """
+        # limit = 50 # 改這
         result = []
         text_length = len(text)
         merge_start_position = 0
+        # split_position = limit # 改這
         split_position = self.__text_limit
         punctuation = ['。', '！', '!', '？', '?', '\n', '\t', '，', ',', '、', '　', ' ', '（', '）', '(', ')', '「', '」', '；', '﹔']
 
+        reserved_lenth = 0
         while(split_position < text_length):
+            reserved_lenth = self.__count_reserved_word(text[merge_start_position:split_position])
+            # if reserved_lenth >= limit: # 改這
+            if reserved_lenth >= self.__text_limit:
+                raise ValueError("Use too much reserved word.")
+
+            split_position -= reserved_lenth
             # 從分割點開始向前尋找標點符號
             for i in range(split_position-1, merge_start_position, -1):
                 if text[i] in punctuation:
                     split_position = i
                     break
-            # print(split_position)
+
             # 分段儲存文字
             # result.append(text[merge_start_position:split_position])
             result.append(TextParagraph(text[merge_start_position:split_position]))
             # 實際分割點(標點符號位置)設為新分割點
             merge_start_position = split_position
 
+            # split_position += limit # 改這
             split_position += self.__text_limit
+
         # result.append(text[merge_start_position:])
+        if self.__count_reserved_word(text[merge_start_position:]) > 200: # 200要再修改
+            raise ValueError("Use too much reserved word.")
+
         result.append(TextParagraph(text[merge_start_position:]))
+
         return result
 
 
@@ -94,7 +109,7 @@ class TextEditor(object):
 
         alphabet = "bopomo"
         lang = "TW"
-        return f'<phoneme alphabet="{alphabet}" lang="{lang}" ph="{ph}">{self.__check_reserved_word(text)}</phoneme>'
+        return f'<phoneme alphabet="{alphabet}" lang="{lang}" ph="{ph}">{text}</phoneme>'
 
 
     def __add_break(self, break_time:int):
@@ -104,7 +119,8 @@ class TextEditor(object):
         """
 
         if break_time > 5000:
-            # print("[DEBUG] Out of range, break_time max value = 5000")
+            if Settings.print_log:
+                print("[DEBUG] Out of range, break_time max value = 5000")
             break_time = 5000
         return f'<break time="{break_time}ms"/>'
 
@@ -170,7 +186,7 @@ class TextEditor(object):
                 else:
                     tag_volume = f' volume="{volume}dB"'
 
-        return f'<prosody{tag_rate}{tag_pitch}{tag_volume}>{self.__check_reserved_word(text)}</prosody>'
+        return f'<prosody{tag_rate}{tag_pitch}{tag_volume}>{text}</prosody>'
 
 
     # ---------- Text ----------
@@ -181,6 +197,8 @@ class TextEditor(object):
         """
         if type(position) != int:
             raise TypeError("Parameter 'position(int)' type error.")
+        if type(text) != str:
+            raise TypeError("Parameter 'text(str)' type error.")
 
         text_list = self.__check_text_length(text)
 
@@ -201,25 +219,32 @@ class TextEditor(object):
         若輸入超過範圍值，皆以最大/最小值替代\n
         position：文字加入的位置，position = -1 或大於段落總數時會加在最後\n
         """
+        if type(position) != int:
+            raise TypeError("Parameter 'position(int)' type error.")
+        if type(text) != str:
+            raise TypeError("Parameter 'text(str)' type error.")
         if type(rate) != float:
             raise TypeError("Parameter 'rate(float)' type error.")
         if type(pitch) != int:
             raise TypeError("Parameter 'pitch(int)' type error.")
         if type(volume) != float:
             raise TypeError("Parameter 'volume(float)' type error.")
-        if type(position) != int:
-            raise TypeError("Parameter 'position(int)' type error.")
 
         if position == -1:
             position = len(self.text) + 1
 
         # 現階段有可能轉換2次保留字
-        text = self.__check_reserved_word(text)
+        # text = self.__check_reserved_word(text)
+        # text_list = self.__check_text_length(text)
+
         text_list = self.__check_text_length(text)
 
         # limit = 200
         count = 0
         for text_each in text_list:
+            # text_each = self.__check_reserved_word(text_each)
+            text_each.update(self.__check_reserved_word(text_each._text))
+
             tags = [(match.start(), match.end()) for match in re.finditer(r'\[:(.*?)\]', text_each._text)]
             length = len(text_each._text)
             for tag in tags:
@@ -265,8 +290,8 @@ class TextEditor(object):
             print("Text is empty.")
 
         result = []
-        for text_paragraph in self.text:
-            result.append(text_paragraph._text)
+        for text_each in self.text:
+            result.append(text_each._text)
         return result
 
 
@@ -310,6 +335,10 @@ class TextEditor(object):
         """
         if type(position) != int:
             raise TypeError("Parameter 'position(int)' type error.")
+        if type(text) != str:
+            raise TypeError("Parameter 'text(str)' type error.")
+        if type(ph) != str:
+            raise TypeError("Parameter 'ph(str)' type error.")
 
         text_list = self.__check_text_length(text)
 
@@ -317,7 +346,8 @@ class TextEditor(object):
             position = len(self.text) + 1
 
         for text_each in text_list:
-            text_each.update(self.__add_phoneme(text_each._text, ph))
+            text_each.update(self.__add_phoneme(\
+                             self.__check_reserved_word(text_each._text), ph))
 
         self.text[position:position] = text_list
 
@@ -330,6 +360,8 @@ class TextEditor(object):
         """
         if type(position) != int:
             raise TypeError("Parameter 'position(int)' type error.")
+        if type(break_time) != int:
+            raise TypeError("Parameter 'break_time(int)' type error.")
 
         if position == -1:
             position = len(self.text) + 1
@@ -345,14 +377,16 @@ class TextEditor(object):
         若輸入超過範圍值，皆以最大/最小值替代\n
         position：文字加入的位置，position = -1 或大於段落總數時會加在最後\n
         """
+        if type(position) != int:
+            raise TypeError("Parameter 'position(int)' type error.")
+        if type(text) != str:
+            raise TypeError("Parameter 'text(str)' type error.")
         if type(rate) != float:
             raise TypeError("Parameter 'rate(float)' type error.")
         if type(pitch) != int:
             raise TypeError("Parameter 'pitch(int)' type error.")
         if type(volume) != float:
             raise TypeError("Parameter 'volume(float)' type error.")
-        if type(position) != int:
-            raise TypeError("Parameter 'position(int)' type error.")
 
         text_list = self.__check_text_length(text)
 
@@ -360,12 +394,14 @@ class TextEditor(object):
             position = len(self.text) + 1
 
         for text_each in text_list:
-            text_each.update(self.__add_prosody(text_each._text, rate, pitch, volume))
+            text_each.update(self.__add_prosody(\
+                             self.__check_reserved_word(text_each._text), rate, pitch, volume))
 
         self.text[position:position] = text_list
 
 
-    def insert_prosody_and_phoneme(self, text:str, ph:str, rate:float=1.0, pitch:int=0, volume:float=0.0, position = -1):
+    def insert_prosody_and_phoneme(self, text:str, ph:str, \
+                                   rate:float=1.0, pitch:int=0, volume:float=0.0, position = -1):
         """
         text：需要修改發音的文字\n
          ph ：指定的發音\n
@@ -375,14 +411,18 @@ class TextEditor(object):
         若輸入超過範圍值，皆以最大/最小值替代\n
         position：文字加入的位置，position = -1 或大於段落總數時會加在最後\n
         """
+        if type(position) != int:
+            raise TypeError("Parameter 'position(int)' type error.")
+        if type(text) != str:
+            raise TypeError("Parameter 'text(str)' type error.")
+        if type(ph) != str:
+            raise TypeError("Parameter 'ph(str)' type error.")
         if type(rate) != float:
             raise TypeError("Parameter 'rate(float)' type error.")
         if type(pitch) != int:
             raise TypeError("Parameter 'pitch(int)' type error.")
         if type(volume) != float:
             raise TypeError("Parameter 'volume(float)' type error.")
-        if type(position) != int:
-            raise TypeError("Parameter 'position(int)' type error.")
 
         text_list = self.__check_text_length(text)
 
@@ -390,7 +430,8 @@ class TextEditor(object):
             position = len(self.text) + 1
 
         for text_each in text_list:
-            text_each.update(self.__add_prosody(self.__add_phoneme(text_each._text, ph), rate, pitch, volume))
+            text_each.update(self.__add_prosody(self.__add_phoneme(\
+                             self.__check_reserved_word(text_each)._text, ph), rate, pitch, volume))
         self.text[position:position] = text_list
 
 
