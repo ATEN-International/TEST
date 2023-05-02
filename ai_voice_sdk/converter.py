@@ -5,6 +5,7 @@ import time
 from .enums import Voice, ConverterStatus
 from .config import ConverterConfig, Settings
 from .textedit import TextEditor
+from .units import RestfulApiHandler
 from .units import Tools
 
 status_and_error_codes = {
@@ -27,6 +28,8 @@ status_and_error_codes = {
     50304: '合成失敗，請重新發送請求。',
     401: 'token認證錯誤或API Access未開啟(Web page)。',
     404: '找不到資源, url 錯誤。',
+    40199: 'Do not support self-signed certificate server.',
+    40499: 'Unknown error. Can not get Restful API response, maybe "server url" is wrong.',
 }
 
 
@@ -65,165 +68,153 @@ class ConverterResult(object):
 class VoiceConverter(object):
     config:ConverterConfig
     text:TextEditor
-    # _server_url:str
-    # _token:str
-
-    # _voice:Voice
-    _ssml_version = "1.0.demo"
-    _ssml_lang = "zh-TW"
+    _api_handler:RestfulApiHandler
 
     _text = []
     # _text_limit = 1500
 
-    # _task_id = ""
     _task_list = [] # [{"id": "0~XX", "text": "paragraphs"}]
     _task_ssml_temp = [] # workaround for ssml file
     # _task_each_text_limit = _text_limit + 200
     _task_each_text_limit = Settings.task_each_text_limit
 
-    _server_support_json_status_code = [200, 400, 500, 503] # 401 server回傳會少帶code參數，所以暫時移除
-    # _support_file_type = [".txt", ".ssml"] # 暫不支援ssml
-    # _support_file_type = [".txt"]
-
-
-    # _is_ssml_task = False
-
 
     def __init__(self, config = ConverterConfig()):
-        self.config = ConverterConfig(config.get_token(), config.get_server())
-        self.config.voice = config.get_voice()
+        # self.config = ConverterConfig(config.get_token(), config.get_server())
+        # self.config.voice = config.get_voice()
+        self._api_handler = RestfulApiHandler(config)
         self.text = TextEditor(self._text)
 
 
-    def _restful_sender(self, api_url:str, payload:map) -> requests.models.Response:
-        url = f"{self.config.get_server()}{api_url}"
-        # headers = {'content-type': 'application/json', 'Authorization': f'Bearer {token}'}
-        headers = {'content-type': 'application/json', 'Authorization': f'Bearer {self.config.get_token()}'}
-        return requests.post(url, headers=headers, json=payload, timeout=10)
+    # def _restful_sender(self, api_url:str, payload:map) -> requests.models.Response:
+    #     url = f"{self.config.get_server()}{api_url}"
+    #     # headers = {'content-type': 'application/json', 'Authorization': f'Bearer {token}'}
+    #     headers = {'content-type': 'application/json', 'Authorization': f'Bearer {self.config.get_token()}'}
+    #     return requests.post(url, headers=headers, json=payload, timeout=10)
 
 
-    def _response_to_json(self, result:requests.models.Response) -> json:
-        """
-        將不是json格式或缺少資訊的response格式化
-        """
-        if result.status_code == 404:
-            return {"data": "Not Found", "code": result.status_code}
-        elif result.status_code == 401:
-            return {"data": {"status": "Not authorized."}, "code": result.status_code}
-        else:
-            return {"data": result.text, "code": result.status_code}
+    # def _response_to_json(self, result:requests.models.Response) -> json:
+    #     """
+    #     將不是json格式或缺少資訊的response格式化
+    #     """
+    #     if result.status_code == 404:
+    #         return {"data": "Not Found", "code": result.status_code}
+    #     elif result.status_code == 401:
+    #         return {"data": {"status": "Not authorized."}, "code": result.status_code}
+    #     else:
+    #         return {"data": result.text, "code": result.status_code}
 
 
-    def _clear_content(self):
-        self._task_list.clear()
-        # self._is_ssml_task = False
+    # def _clear_content(self):
+    #     self._task_list.clear()
+    #     # self._is_ssml_task = False
 
 
-    # ---------- API ----------
-    def _add_text_task(self, text:str) -> json:
-        api_url = "/api/v1.0/syn/syn_text"
+    # # ---------- API ----------
+    # def _add_text_task(self, text:str) -> json:
+    #     api_url = "/api/v1.0/syn/syn_text"
 
-        payload = {
-            # "orator_name": self._voice.value,
-            "orator_name": self.config.voice.value,
-            "text": text
-        }
+    #     payload = {
+    #         # "orator_name": self._voice.value,
+    #         "orator_name": self.config.voice.value,
+    #         "text": text
+    #     }
 
-        # print(f"payload length(text): {len(payload['orator_name'])+len(payload['text'])}, content length: {len(payload['text'])}")
-        if len(payload['text']) > 2000:
-            return {"data": "字數超過限制值", "code": 40010}
+    #     # print(f"payload length(text): {len(payload['orator_name'])+len(payload['text'])}, content length: {len(payload['text'])}")
+    #     if len(payload['text']) > 2000:
+    #         return {"data": "字數超過限制值", "code": 40010}
 
-        result = self._restful_sender(api_url, payload)
+    #     result = self._restful_sender(api_url, payload)
 
-        if result.status_code in self._server_support_json_status_code:
-            return result.json()
-        else:
-            return self._response_to_json(result)
-
-
-    def _add_ssml_task(self, ssml_text:str) -> json:
-        api_url = "/api/v1.0/syn/syn_ssml"
-
-        payload = {
-            "ssml": f'<speak xmlns="http://www.w3.org/2001/10/synthesis" version="{self._ssml_version}" xml:lang="{self._ssml_lang}">\
-                <voice name="{self.config.voice.value}">\
-                {ssml_text}\
-                </voice>\
-            </speak>'
-        }
-
-        # ssml default length = 191
-        # print(f"payload length(ssml): {len(payload['ssml'])}, content length: {len(ssml_text)}")
-        if len(payload['ssml']) > 2000:
-            return {"data": "字數超過限制值", "code": 40010}
-
-        # print(f"ssml payload: {payload.get('ssml')}")
-        result = self._restful_sender(api_url, payload)
-
-        if result.status_code in self._server_support_json_status_code:
-            return result.json()
-        else:
-            return self._response_to_json(result)
+    #     if result.status_code in self._server_support_json_status_code:
+    #         return result.json()
+    #     else:
+    #         return self._response_to_json(result)
 
 
-    def _get_task_status(self, task_id:str) -> json:
-        api_url = "/api/v1.0/syn/task_status"
+    # def _add_ssml_task(self, ssml_text:str) -> json:
+    #     api_url = "/api/v1.0/syn/syn_ssml"
 
-        payload = {
-            "task_id": task_id
-        }
-        result = self._restful_sender(api_url, payload)
+    #     payload = {
+    #         "ssml": f'<speak xmlns="http://www.w3.org/2001/10/synthesis" version="{self._ssml_version}" xml:lang="{self._ssml_lang}">\
+    #             <voice name="{self.config.voice.value}">\
+    #             {ssml_text}\
+    #             </voice>\
+    #         </speak>'
+    #     }
 
-        if result.status_code in self._server_support_json_status_code:
-            return result.json()
-        else:
-            return self._response_to_json(result)
+    #     # ssml default length = 191
+    #     # print(f"payload length(ssml): {len(payload['ssml'])}, content length: {len(ssml_text)}")
+    #     if len(payload['ssml']) > 2000:
+    #         return {"data": "字數超過限制值", "code": 40010}
 
+    #     # print(f"ssml payload: {payload.get('ssml')}")
+    #     result = self._restful_sender(api_url, payload)
 
-    def _get_task_file(self, task_id:str, file_name:str) -> json:
-        api_url = "/api/v1.0/syn/get_file"
-
-        if len(file_name) < 1:
-            file_name = task_id
-
-        payload = {
-            "filename": f"{task_id}.wav"
-        }
-        result = self._restful_sender(api_url, payload)
-
-        if result.status_code in self._server_support_json_status_code:
-            if result.headers['Content-Type'] == "audio/wav":
-                # print("[INFO] Get wav file.")
-                self._save_wav_file(file_name, result.content)
-                return {"data": "SUCCESS", "code": 20001}
-                # if self._check_wav_type(result.content) == True:
-                #     self._save_wav_file(file_name, result.content)
-                #     return {"data": "SUCCESS", "code": 20001}
-                # else:
-                #     return {"data": "Wav file check fail.", "code": 999}
-            else:
-                return result.json()
-        else:
-            return self._response_to_json(result)
-
-    def _get_task_audio(self, task_id:str) -> json:
-        api_url = "/api/v1.0/syn/get_file"
-
-        payload = {
-            "filename": f"{task_id}.wav"
-        }
-        result = self._restful_sender(api_url, payload)
-
-        if result.status_code in self._server_support_json_status_code:
-            if result.headers['Content-Type'] == "audio/wav":
-                return {"data": result.content, "code": 20001}
-            else:
-                return result.json()
-        else:
-            return self._response_to_json(result)
+    #     if result.status_code in self._server_support_json_status_code:
+    #         return result.json()
+    #     else:
+    #         return self._response_to_json(result)
 
 
-    def _error_code_handler(self, result_json:json) -> str:
+    # def _get_task_status(self, task_id:str) -> json:
+    #     api_url = "/api/v1.0/syn/task_status"
+
+    #     payload = {
+    #         "task_id": task_id
+    #     }
+    #     result = self._restful_sender(api_url, payload)
+
+    #     if result.status_code in self._server_support_json_status_code:
+    #         return result.json()
+    #     else:
+    #         return self._response_to_json(result)
+
+
+    # def _get_task_file(self, task_id:str, file_name:str) -> json:
+    #     api_url = "/api/v1.0/syn/get_file"
+
+    #     if len(file_name) < 1:
+    #         file_name = task_id
+
+    #     payload = {
+    #         "filename": f"{task_id}.wav"
+    #     }
+    #     result = self._restful_sender(api_url, payload)
+
+    #     if result.status_code in self._server_support_json_status_code:
+    #         if result.headers['Content-Type'] == "audio/wav":
+    #             # print("[INFO] Get wav file.")
+    #             self._save_wav_file(file_name, result.content)
+    #             return {"data": "SUCCESS", "code": 20001}
+    #             # if self._check_wav_type(result.content) == True:
+    #             #     self._save_wav_file(file_name, result.content)
+    #             #     return {"data": "SUCCESS", "code": 20001}
+    #             # else:
+    #             #     return {"data": "Wav file check fail.", "code": 999}
+    #         else:
+    #             return result.json()
+    #     else:
+    #         return self._response_to_json(result)
+
+    # def _get_task_audio(self, task_id:str) -> json:
+    #     api_url = "/api/v1.0/syn/get_file"
+
+    #     payload = {
+    #         "filename": f"{task_id}.wav"
+    #     }
+    #     result = self._restful_sender(api_url, payload)
+
+    #     if result.status_code in self._server_support_json_status_code:
+    #         if result.headers['Content-Type'] == "audio/wav":
+    #             return {"data": result.content, "code": 20001}
+    #         else:
+    #             return result.json()
+    #     else:
+    #         return self._response_to_json(result)
+
+
+    def _translate_result_code(self, result_json:json) -> str:
         code = result_json['code']
         if code in status_and_error_codes:
             if Settings.print_log:
@@ -265,16 +256,7 @@ class VoiceConverter(object):
 
     # ---------- Config ----------
     def update_config(self, config:ConverterConfig):
-        self.config = ConverterConfig(config.get_token(), config.get_server())
-        self.config.voice = config.get_voice()
-
-    # ---------- Converter version ----------
-    # def set_file_name(self, file_name:str):
-    #     self._file_name = file_name
-
-
-    # def get_file_name(self) -> str:
-    #     return self._file_name
+        self._api_handler.update_config(config)
 
 
     # ---------- Task infomation ----------
@@ -318,7 +300,7 @@ class VoiceConverter(object):
             while result_json['code'] == 50301:
                 print(f"Waitting for server...")
 
-                result_json = self._add_ssml_task(task['text'])
+                result_json = self._api_handler.add_ssml_task(task['text'])
 
                 if (interval_time == 0) or (result_json['code'] == 20001):
                     break
@@ -338,13 +320,13 @@ class VoiceConverter(object):
                 status = ConverterStatus.ConverVoiceFail
                 if result_json['code'] == 50301:
                     status = ConverterStatus.ServerBusy
-                error_msg = f"{self._error_code_handler(result_json)}"
+                error_msg = f"{self._translate_result_code(result_json)}"
                 break
 
             if is_wait_speech == True:
                 task_status = "RUNNING"
                 while task_status == "RUNNING":
-                    result_json = self._get_task_status(task['id'])
+                    result_json = self._api_handler.get_task_status(task['id'])
                     task_status = result_json['data']['status']
                     time.sleep(1)
                     # ConverVoiceRunning
@@ -353,7 +335,7 @@ class VoiceConverter(object):
                     status = ConverterStatus.ConverVoiceCompleted
                 else:
                     status = ConverterStatus.ConverVoiceFail
-                    error_msg = f"{self._error_code_handler(result_json)} (In process {task_count}/{task_number})"
+                    error_msg = f"{self._translate_result_code(result_json)} (In process {task_count}/{task_number})"
                     break
 
             task_count += 1
@@ -386,7 +368,7 @@ class VoiceConverter(object):
         task_number = len(self._task_list)
         task_count = 1
         for task in self._task_list:
-            result_json = self._get_task_status(task['id'])
+            result_json = self._api_handler.get_task_status(task['id'])
 
             if result_json['code'] == 20001:
                 if Settings.print_log:
@@ -399,10 +381,10 @@ class VoiceConverter(object):
                     detail = f"Voice Converting: Task({task_count}/{task_number})"
                 else:
                     # 待確認
-                    error_msg = self._error_code_handler(result_json)
+                    error_msg = self._translate_result_code(result_json)
                     status = ConverterStatus.ConverVoiceFail
             else:
-                error_msg = self._error_code_handler(result_json)
+                error_msg = self._translate_result_code(result_json)
                 status = ConverterStatus.ConverVoiceFail
 
             task_data.append({"id": task['id'], "data": None})
@@ -417,10 +399,10 @@ class VoiceConverter(object):
         task_data = []
         error_msg = ""
         for task in self._task_list:
-            result_json = self._get_task_audio(task['id'])
+            result_json = self._api_handler.get_task_audio(task['id'])
 
             if result_json['code'] != 20001:
-                error_msg = self._error_code_handler(result_json)
+                error_msg = self._translate_result_code(result_json)
                 task_data.append({"id": task['id'], "data": None})
                 return ConverterResult(ConverterStatus.GetSpeechFail, task_data, "", error_msg)
 
