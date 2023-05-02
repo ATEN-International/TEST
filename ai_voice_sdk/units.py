@@ -166,7 +166,7 @@ class RestfulApiHandler(object):
     def update_config(self, config:ConverterConfig):
         self._server_url = config.get_server()
         self._token = config.get_token()
-        self.voice = config.voice()
+        self.voice = config.get_voice()
         self._ssml_version = config.get_ssml_version()
         self._ssml_lang = config.get_ssml_lang()
 

@@ -233,16 +233,11 @@ class TextEditor(object):
         if position == -1:
             position = len(self.text) + 1
 
-        # 現階段有可能轉換2次保留字
-        # text = self.__check_reserved_word(text)
-        # text_list = self.__check_text_length(text)
-
         text_list = self.__check_text_length(text)
 
         # limit = 200
         count = 0
         for text_each in text_list:
-            # text_each = self.__check_reserved_word(text_each)
             text_each.update(self.__check_reserved_word(text_each._text))
 
             tags = [(match.start(), match.end()) for match in re.finditer(r'\[:(.*?)\]', text_each._text)]
@@ -431,7 +426,7 @@ class TextEditor(object):
 
         for text_each in text_list:
             text_each.update(self.__add_prosody(self.__add_phoneme(\
-                             self.__check_reserved_word(text_each)._text, ph), rate, pitch, volume))
+                             self.__check_reserved_word(text_each._text), ph), rate, pitch, volume))
         self.text[position:position] = text_list
 
 
