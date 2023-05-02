@@ -2,22 +2,18 @@ from .enums import Voice
 
 class Settings(object):
     text_limit = 1500
-
     # _support_file_type = [".txt", ".ssml"] # 暫不支援ssml
     support_file_type = [".txt"]
-
     task_each_text_limit = text_limit + 200
-    # server_support_json_status_code = [200, 400, 500, 503] # 401 server回傳會少帶code參數，所以暫時移除
-
     print_log = False
 
 class ConverterConfig(object):
     _token:str
     _server_url:str
 
-    voice = Voice.NOETIC
-    _ssml_version = ""
-    _ssml_lang = ""
+    voice = None # 聲音預設值為None
+    _ssml_version = "1.0.demo"
+    _ssml_lang = "zh-TW"
 
     def __init__(self, token = "", server_url = "https://www.aivoice.com.tw") -> None:
         if type(token) != str:
@@ -61,3 +57,11 @@ class ConverterConfig(object):
 
     def get_voice(self) -> str:
         return self.voice
+
+
+    def get_ssml_version(self) -> str:
+        return self._ssml_version
+
+
+    def get_ssml_lang(self) -> str:
+        return self._ssml_lang
