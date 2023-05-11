@@ -65,8 +65,7 @@ class RestfulApiHandler(object):
 
         api_url = "/api/v1.0/syn/syn_text"
         payload = {
-            # "orator_name": self._voice.value,
-            "orator_name": self.config.voice.value,
+            "orator_name": self.voice.value,
             "text": text
         }
 
@@ -81,10 +80,6 @@ class RestfulApiHandler(object):
         except Exception as error:
             raise Exception(f"An unexpected error occurred: {error}")
 
-        # if result.status_code in self._server_support_json_status_code:
-        #     return result.json()
-        # else:
-        #     return self._response_to_json(result)
 
     def add_ssml_task(self, ssml_text:str) -> json:
         if self.voice == None:
@@ -111,12 +106,6 @@ class RestfulApiHandler(object):
         except Exception as error:
             raise Exception(f"An unexpected error occurred: {error}")
 
-        # if result.status_code in self._server_support_json_status_code:
-        #     return result.json()
-        # else:
-        #     return self._response_to_json(result)
-        # return self._response_handler(result)
-
 
     def get_task_status(self, task_id:str) -> json:
         api_url = "/api/v1.0/syn/task_status"
@@ -124,17 +113,11 @@ class RestfulApiHandler(object):
             "task_id": task_id
         }
 
-        # result = self._restful_sender(api_url, payload)
         try:
             result = self._restful_sender(api_url, payload)
             return self._response_handler(result)
         except Exception as error:
             raise Exception(f"An unexpected error occurred: {error}")
-
-        # if result.status_code in self._server_support_json_status_code:
-        #     return result.json()
-        # else:
-        #     return self._response_to_json(result)
 
 
     def get_task_audio(self, task_id:str) -> json:
@@ -143,7 +126,6 @@ class RestfulApiHandler(object):
             "filename": f"{task_id}.wav"
         }
 
-        # result = self._restful_sender(api_url, payload)
         try:
             result = self._restful_sender(api_url, payload)
             if result.headers['Content-Type'] == "audio/wav":
@@ -152,15 +134,6 @@ class RestfulApiHandler(object):
                 return self._response_handler(result)
         except Exception as error:
             raise Exception(f"An unexpected error occurred: {error}")
-
-        # if result.status_code in self._server_support_json_status_code:
-        #     if result.headers['Content-Type'] == "audio/wav":
-        #         return {"data": result.content, "code": 20001}
-        #     else:
-        #         return result.json()
-        # else:
-        #     return self._response_to_json(result)
-
 
 
     def update_config(self, config:ConverterConfig):

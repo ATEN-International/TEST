@@ -146,11 +146,14 @@ class TextEditor(object):
         volume_min = -6.0
         volume_default = 0.0
 
+        is_default_value = True
+
         if type(pitch) != int:
             # print("[DEBUG] Pitch type wrong")
             pitch = int(pitch)
 
         if rate != rate_default:
+            is_default_value = False
             if rate > rate_max:
                 # print("[DEBUG] Rate out of range, use the maximum to translate.")
                 tag_rate = f' rate="{rate_max}"'
@@ -161,6 +164,7 @@ class TextEditor(object):
                 tag_rate = f' rate="{rate}"'
 
         if pitch != pitch_default:
+            is_default_value = False
             if pitch > pitch_max:
                 # print("[DEBUG] Pitch out of range, use the maximum to translate.")
                 tag_pitch = f' pitch="+{pitch_max}st"'
@@ -174,6 +178,7 @@ class TextEditor(object):
                     tag_pitch = f' pitch="{pitch}st"'
 
         if volume != volume_default:
+            is_default_value = False
             if volume > volume_max:
                 # print("[DEBUG] Volume out of range, use the maximum to translate.")
                 tag_volume = f' volume="+{volume_max}dB"'
@@ -185,6 +190,9 @@ class TextEditor(object):
                     tag_volume = f' volume="+{volume}dB"'
                 else:
                     tag_volume = f' volume="{volume}dB"'
+
+        if is_default_value:
+            tag_rate = ' rate="1.0"'
 
         return f'<prosody{tag_rate}{tag_pitch}{tag_volume}>{text}</prosody>'
 
@@ -235,7 +243,7 @@ class TextEditor(object):
 
         text_list = self.__check_text_length(text)
 
-        # limit = 200
+        limit = self.__text_limit
         count = 0
         for text_each in text_list:
             text_each.update(self.__check_reserved_word(text_each._text))
@@ -248,8 +256,7 @@ class TextEditor(object):
                 else:
                     length += 51 # ssml break tag 長度最大(單一文字)為58 比原本多51
 
-                # if length > limit:
-                if length > self.__text_limit:
+                if length > limit:
                     text_list[count+1:count+1] = [TextParagraph(text_each._text[tag[1]:])]
                     text_each._text = text_each._text[:tag[1]]
                     break
@@ -267,7 +274,6 @@ class TextEditor(object):
                 else:
                     if text_each._text[rematch.start()-1] == ']':
                         new_tag = ""
-                        # print("!!")
                         continue
                     word = text_each._text[rematch.start()-1]
                     ph = text_each._text[rematch.start()+2:rematch.end()-1]
@@ -276,7 +282,7 @@ class TextEditor(object):
                     shift -= 1
                 shift += len(new_tag) - rematch.end() + rematch.start()
 
-            text_each.update(new_text)
+            text_each.update(self.__add_prosody(new_text, rate, pitch, volume))
 
         self.text[position:position] = text_list
 

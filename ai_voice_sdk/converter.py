@@ -59,11 +59,8 @@ class ConverterResult(object):
                     file_number = ""
 
                 if each_data['data'] != None:
-                    # print("Call save file.")
                     Tools().save_wav_file(filename + file_number, each_data['data'])
-                    # _save_wav_file(filename + file_number, each_data['data'])
                 count += 1
-        # print("Save audio file.")
 
 
 class VoiceConverter(object):
