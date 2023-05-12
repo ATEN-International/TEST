@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 
 import re
+import xml.etree.ElementTree as ET
 
 from .config import Settings
 from .units import Tools
@@ -195,6 +196,117 @@ class TextEditor(object):
         return f'<prosody{tag_rate}{tag_pitch}{tag_volume}>{text}</prosody>'
 
 
+    def _get_ssml_all_tags(self, element:ET.Element, layer = 1) -> list:
+        """
+        element: 套件解析後的element tree\n
+        layer: 第幾層的節點(default layer = 1)
+        """
+        ssml_tags:list = [] # [layer, tag, attrib, text]
+        tag:str = element.tag[element.tag.rfind('}')+1:]
+        text:str = ""
+
+        if element.text:
+            text = element.text
+
+        # Add ssml tag to list
+        ssml_tags.append([layer, tag, element.attrib, text])
+
+        for child in element:
+            ssml_tags += self._get_ssml_all_tags(child, layer+1)
+            if child.tail:
+                ssml_tags.append([layer, "tail", None, child.tail])
+
+        return ssml_tags
+
+
+    def ssml_tag_to_text(self, ssml_tag:list) -> str:
+        if ssml_tag[1] == "voice":
+            return ssml_tag[3]
+        elif ssml_tag[1] == "phoneme":
+            return self._add_phoneme(ssml_tag[3], ssml_tag[2]['ph'])
+        elif ssml_tag[1] == "break":
+            return self._add_break(int(ssml_tag[2]['time'][:-2]))
+        elif ssml_tag[1] == "prosody":
+            return self._add_prosody(ssml_tag[3], float(ssml_tag[2]['rate']), int(ssml_tag[2]['pitch'][:-2]), float(ssml_tag[2]['volume'][:-2]))
+        elif ssml_tag[1] == "tail":
+            return ssml_tag[3]
+        else:
+            return ""
+
+
+    def _format_ssml_text(self, ssml_element:ET.Element) -> list:
+        ssml_tag_list = self._get_ssml_all_tags(ssml_element, 1)
+        limit = self.__text_limit
+
+        text_list = [""]
+
+        count = 0
+        length = 0
+        i = 0
+        is_prosody = False
+        prosody_layer = 1
+        prosody_start_tag = ""
+
+        ssml_tag_list_after_check_length = []
+        for tag in ssml_tag_list:
+            # 檢查文字長度，同時檢查保留字，並存為新的text list
+            text_paragraph_list = self.__check_text_length(tag[3])
+
+            for text in text_paragraph_list:
+                ssml_tag_list_after_check_length.append([tag[0], tag[1], tag[2], self.__check_reserved_word(text._text)]) # XXX 暫時使用list
+
+        for i in range(len(ssml_tag_list_after_check_length)-1):
+            ssml_text = self.ssml_tag_to_text(ssml_tag_list_after_check_length[i])
+
+            if ssml_tag_list_after_check_length[i][1] == "prosody":
+                # 偵測到prosody tag，針對prosody情境處裡tag
+                is_prosody = True
+
+                prosody_layer = ssml_tag_list_after_check_length[i][0]
+                ssml_text = ssml_text[:ssml_text.rfind("</prosody")] # remove '</prosody>'
+                prosody_start_tag = ssml_text[:ssml_text.find(">")+1]
+                # print("--> start", prosody_start_tag)
+
+            length += len(ssml_text)
+            text_list[count] += ssml_text
+
+            if is_prosody == True:
+                if ssml_tag_list_after_check_length[i+1][0] <= prosody_layer and (ssml_tag_list_after_check_length[i+1][1]!= "tail"):
+                    # 偵測prosody tag結尾
+                    is_prosody = False
+                    prosody_start_tag = ""
+                    # print("--> add end tad </prosody>")
+                    length += len("</prosody>")
+                    text_list[count] += "</prosody>"
+
+            if length + len(self.ssml_tag_to_text(ssml_tag_list_after_check_length[i+1])) > limit:
+                # Add new text element
+                text_list.append("")
+                count += 1
+                length = 0
+
+                # Add prosody end tag to previous text
+                if is_prosody == True:
+                    text_list[count-1] += "</prosody>"
+                    text_list[count] += prosody_start_tag # Add prosody header tag
+                # ========================================
+
+        if len(ssml_tag_list_after_check_length) > 1:
+            i += 1
+
+        end_tag = ""
+        if is_prosody == True:
+            end_tag = "</prosody>"
+
+        last_text = self.ssml_tag_to_text(ssml_tag_list_after_check_length[i])
+        if length + len(last_text) > limit:
+            text_list.append((last_text + end_tag))
+        else:
+            text_list[count] = text_list[count] + last_text + end_tag
+
+        return text_list
+
+
     # ---------- Text ----------
     def add_text(self, text:str, position = -1):
         """
@@ -281,6 +393,37 @@ class TextEditor(object):
                 shift += len(new_tag) - rematch.end() + rematch.start()
 
             text_each.update(self._add_prosody(new_text, rate, pitch, volume))
+
+        self.text[position:position] = text_list
+
+
+    def add_ssml_text(self, text:str, position = -1):
+        """
+        text：加入的文字\n
+        position：文字加入的位置，position = -1 或大於段落總數時會加在最後
+        """
+        if type(position) != int:
+            raise TypeError("Parameter 'position(int)' type error.")
+        if type(text) != str:
+            raise TypeError("Parameter 'text(str)' type error.")
+
+        ssml_element:ET.Element
+        try:
+            ssml_element = ET.fromstring(text)
+        except Exception as error:
+            if type(error) == ET.ParseError:
+                raise ValueError(f"Ssml string {error}")
+            else:
+                raise RuntimeError(f"Read ssml string fail.")
+
+        ssml_text = self._format_ssml_text(ssml_element)
+        text_list = []
+
+        if position == -1:
+            position = len(self.text) + 1
+
+        for text in ssml_text:
+            text_list.append(TextParagraph(text))
 
         self.text[position:position] = text_list
 
