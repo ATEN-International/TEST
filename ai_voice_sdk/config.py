@@ -2,9 +2,10 @@ from .enums import Voice
 
 class Settings(object):
     text_limit = 1500
+    elastic_value = 200
     # _support_file_type = [".txt", ".ssml"] # 暫不支援ssml
     support_file_type = [".txt"]
-    task_each_text_limit = text_limit + 200
+    task_each_text_limit = text_limit + elastic_value
     print_log = False
 
 class ConverterConfig(object):

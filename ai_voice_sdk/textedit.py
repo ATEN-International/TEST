@@ -23,6 +23,7 @@ class TextParagraph(object):
 class TextEditor(object):
     text = []
     __text_limit = Settings.text_limit
+    __elastic_value = Settings.elastic_value
     _support_file_type = Settings.support_file_type
 
     def __init__(self, text:list) -> None:
@@ -61,19 +62,17 @@ class TextEditor(object):
         """
         檢查傳入的文字有沒有超出限制，如果超出限制會以標點符號分割字串
         """
-        # limit = 50 # 改這
+        limit = self.__text_limit
         result = []
         text_length = len(text)
         merge_start_position = 0
-        # split_position = limit # 改這
-        split_position = self.__text_limit
+        split_position = limit
         punctuation = ['。', '！', '!', '？', '?', '\n', '\t', '，', ',', '、', '　', ' ', '（', '）', '(', ')', '「', '」', '；', '﹔']
 
         reserved_lenth = 0
         while(split_position < text_length):
             reserved_lenth = self.__count_reserved_word(text[merge_start_position:split_position])
-            # if reserved_lenth >= limit: # 改這
-            if reserved_lenth >= self.__text_limit:
+            if reserved_lenth >= limit:
                 raise ValueError("Use too much reserved word.")
 
             split_position -= reserved_lenth
@@ -89,11 +88,10 @@ class TextEditor(object):
             # 實際分割點(標點符號位置)設為新分割點
             merge_start_position = split_position
 
-            # split_position += limit # 改這
-            split_position += self.__text_limit
+            split_position += limit
 
         # result.append(text[merge_start_position:])
-        if self.__count_reserved_word(text[merge_start_position:]) > 200: # 200要再修改
+        if self.__count_reserved_word(text[merge_start_position:]) > self.__elastic_value: # elastic_value = 200
             raise ValueError("Use too much reserved word.")
 
         result.append(TextParagraph(text[merge_start_position:]))
@@ -101,7 +99,7 @@ class TextEditor(object):
         return result
 
 
-    def __add_phoneme(self, text:str, ph:str):
+    def _add_phoneme(self, text:str, ph:str):
         """
         text：加入的文字\n
          ph ：指定的發音
@@ -112,7 +110,7 @@ class TextEditor(object):
         return f'<phoneme alphabet="{alphabet}" lang="{lang}" ph="{ph}">{text}</phoneme>'
 
 
-    def __add_break(self, break_time:int):
+    def _add_break(self, break_time:int):
         """
         break_time：停頓的時間 (最大值為5000，單位ms)\n
         若輸入值大於上限值，以最大值替代
@@ -125,7 +123,7 @@ class TextEditor(object):
         return f'<break time="{break_time}ms"/>'
 
 
-    def __add_prosody(self, text:str, rate:float, pitch:int, volume:float):
+    def _add_prosody(self, text:str, rate:float, pitch:int, volume:float):
         """
         rate    : 調整語速, 最小值=0.8, 最大值=1.2\n
         pitch   : 調整音調, 最小值=-2, 最大值=2\n
@@ -269,7 +267,7 @@ class TextEditor(object):
             for rematch in re.finditer(r'\[:(.*?)\]', text_each._text): # 作用與 for tag in tags: 相同
                 if text_each._text[rematch.end()-2] == "秒":
                     break_time = float(text_each._text[rematch.start()+2:rematch.end()-2]) * 1000
-                    new_tag = self.__add_break(int(break_time))
+                    new_tag = self._add_break(int(break_time))
                     new_text = new_text[:rematch.start()+shift] + new_tag + new_text[rematch.end()+shift:]
                 else:
                     if text_each._text[rematch.start()-1] == ']':
@@ -277,14 +275,15 @@ class TextEditor(object):
                         continue
                     word = text_each._text[rematch.start()-1]
                     ph = text_each._text[rematch.start()+2:rematch.end()-1]
-                    new_tag = self.__add_phoneme(word, ph)
+                    new_tag = self._add_phoneme(word, ph)
                     new_text = new_text[:rematch.start()+shift-1] + new_tag + new_text[rematch.end()+shift:]
                     shift -= 1
                 shift += len(new_tag) - rematch.end() + rematch.start()
 
-            text_each.update(self.__add_prosody(new_text, rate, pitch, volume))
+            text_each.update(self._add_prosody(new_text, rate, pitch, volume))
 
         self.text[position:position] = text_list
+
 
     def get_text(self) -> list:
         if len(self.text) < 1:
@@ -347,7 +346,7 @@ class TextEditor(object):
             position = len(self.text) + 1
 
         for text_each in text_list:
-            text_each.update(self.__add_phoneme(\
+            text_each.update(self._add_phoneme(\
                              self.__check_reserved_word(text_each._text), ph))
 
         self.text[position:position] = text_list
@@ -367,7 +366,7 @@ class TextEditor(object):
         if position == -1:
             position = len(self.text) + 1
 
-        self.text.insert(position, TextParagraph(self.__add_break(break_time)))
+        self.text.insert(position, TextParagraph(self._add_break(break_time)))
 
 
     def insert_prosody(self, text:str, rate:float=1.0, pitch:int=0, volume:float=0.0, position = -1):
@@ -395,7 +394,7 @@ class TextEditor(object):
             position = len(self.text) + 1
 
         for text_each in text_list:
-            text_each.update(self.__add_prosody(\
+            text_each.update(self._add_prosody(\
                              self.__check_reserved_word(text_each._text), rate, pitch, volume))
 
         self.text[position:position] = text_list
@@ -431,7 +430,7 @@ class TextEditor(object):
             position = len(self.text) + 1
 
         for text_each in text_list:
-            text_each.update(self.__add_prosody(self.__add_phoneme(\
+            text_each.update(self._add_prosody(self._add_phoneme(\
                              self.__check_reserved_word(text_each._text), ph), rate, pitch, volume))
         self.text[position:position] = text_list
 
