@@ -71,7 +71,6 @@ class VoiceConverter(object):
     _text = []
 
     _task_list = [] # [{"id": "0~XX", "text": "paragraphs"}]
-    _task_ssml_temp = [] # workaround for ssml file
     _task_each_text_limit = Settings.task_each_text_limit
 
 

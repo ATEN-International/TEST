@@ -578,17 +578,22 @@ class TextEditor(object):
         self.text[position:position] = text_list
 
 
-    def open_text_file(self, file_path:str, encode = "utf-8"):
+    def open_text_file(self, file_path:str, encode = "utf-8", position = -1):
         """
-        retrun：["SUCCESS", "FAIL"]
-        暫不支援ssml檔
+        file_path：檔案路徑\n
+         encode：檔案編碼格式\n
+        position：文字加入的位置，position = -1 或大於段落總數時會加在最後\n
         """
-        if Tools().check_file_type(file_path) == False:
-            print(f"[ERROR] Open file:{file_path} fail.")
+        if type(position) != int:
+            raise TypeError("Parameter 'position(int)' type error.")
 
-        text = ""
-        with open(file_path, 'r', encoding = encode) as f:
-            text = f.read()
-            f.close()
-        # print(f"[INFO] Open file:{file_path} success.")
-        self.add_text(text)
+        extension = file_path[file_path.rfind('.'):]
+        if extension in self._support_file_type == False:
+            raise TypeError(f"Open file '{file_path}' fail.")
+
+        text = Tools().open_file(file_path, encode)
+
+        if extension == ".ssml" or extension == ".xml":
+            self.add_ssml_text(text, position)
+        else:
+            self.add_text(text, position)

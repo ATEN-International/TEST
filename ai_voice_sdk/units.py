@@ -1,6 +1,7 @@
 # import magic
 import requests
 import json
+import os
 
 from .config import Settings
 from .config import ConverterConfig
@@ -166,11 +167,15 @@ class Tools(object):
     #     return False
 
 
-    def check_file_type(self, file_path:str) -> bool:
-        extension = file_path[file_path.rfind('.'):]
-        if extension in self._support_file_type:
-            return True
-            # if magic.from_file(file_path, mime=True) == 'text/plain':
-            #     # print(f"extension: {extension}, {magic.from_file(file_path, mime=True)}")
-            #     return True
-        return False
+    def open_file(self, file_path:str, encode = "utf-8") -> str:
+        text = ""
+        try:
+            with open(file_path, 'r', encoding = encode) as f:
+                text = f.read()
+                f.close()
+        except FileNotFoundError as error:
+            raise FileNotFoundError(f"No such file or directory: {file_path}")
+        except Exception:
+            raise Exception(f"An unexpected error occurred: {error}")
+
+        return text
