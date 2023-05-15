@@ -1,7 +1,8 @@
 # import magic
 import requests
 import json
-import os
+import wave
+import io
 
 from .config import Settings
 from .config import ConverterConfigInternal
@@ -156,9 +157,25 @@ class Tools(object):
             with open(f"{file_name}.wav", 'wb') as write_index:
                 write_index.write(data)
                 write_index.close()
-        except:
-            raise OSError("Save wav file fail.")
+        except Exception:
+            raise IOError("Save wav file fail.")
 
+
+    def merge_wav_file(self, filename:str, audio_data_list:list):
+        try:
+            merge_data = []
+            for audio_data in audio_data_list:
+                reader = wave.open(io.BytesIO(audio_data), 'rb')
+                merge_data.append([reader.getparams(), reader.readframes(reader.getnframes())])
+                reader.close()
+
+            writer = wave.open(f"{filename}.wav", 'wb')
+            writer.setparams(merge_data[0][0])
+            for data in merge_data:
+                writer.writeframes(data[1])
+            writer.close()
+        except Exception:
+            raise IOError("Merge wav file fail.")
 
 
     # def _check_wav_type(self, wav_content:bytes) -> bool:

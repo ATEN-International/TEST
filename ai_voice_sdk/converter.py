@@ -49,18 +49,28 @@ class ConverterResult(object):
         self.detail = detail
         self.error_message = error_msg
 
-    def save(self, filename = "aivoice") -> None:
+    def save(self, filename = "aivoice", is_merge = False) -> None:
+        """
+        filename：檔案名稱，預設為'aivoice'\n
+        is_merge：如果音檔數量超過一個，是否將其合併為一個檔案\n
+        """
         task_list_length = len(self.task_data)
         if task_list_length > 0:
-            count = 1
-            for each_data in self.task_data:
-                file_number = "-" + str(count)
-                if task_list_length == 1:
-                    file_number = ""
+            if is_merge and (task_list_length > 1):
+                audio_data = []
+                for each_data in self.task_data:
+                    audio_data.append(each_data['data'])
+                Tools().merge_wav_file(filename, audio_data)
+            else:
+                count = 1
+                for each_data in self.task_data:
+                    file_number = "-" + str(count)
+                    if task_list_length == 1:
+                        file_number = ""
 
-                if each_data['data'] != None:
-                    Tools().save_wav_file(filename + file_number, each_data['data'])
-                count += 1
+                    if each_data['data'] != None:
+                        Tools().save_wav_file(filename + file_number, each_data['data'])
+                    count += 1
 
 
 class VoiceConverter(object):
