@@ -209,27 +209,29 @@ class TextEditor(object):
             text = element.text
 
         # Add ssml tag to list
-        ssml_tags.append([layer, tag, element.attrib, text])
+        ssml_tags.append({"layer": layer, "tag": tag, "attrib": element.attrib, "text": text})
 
         for child in element:
             ssml_tags += self._get_ssml_all_tags(child, layer+1)
             if child.tail:
-                ssml_tags.append([layer, "tail", None, child.tail])
+                ssml_tags.append({"layer": layer, "tag": "tail", "attrib": None, "text": child.tail})
 
         return ssml_tags
 
 
-    def ssml_tag_to_text(self, ssml_tag:list) -> str:
-        if ssml_tag[1] == "voice":
-            return ssml_tag[3]
-        elif ssml_tag[1] == "phoneme":
-            return self._add_phoneme(ssml_tag[3], ssml_tag[2]['ph'])
-        elif ssml_tag[1] == "break":
-            return self._add_break(int(ssml_tag[2]['time'][:-2]))
-        elif ssml_tag[1] == "prosody":
-            return self._add_prosody(ssml_tag[3], float(ssml_tag[2]['rate']), int(ssml_tag[2]['pitch'][:-2]), float(ssml_tag[2]['volume'][:-2]))
-        elif ssml_tag[1] == "tail":
-            return ssml_tag[3]
+
+    def ssml_tag_to_text(self, ssml_tag:dict) -> str:
+        if ssml_tag['tag'] == "voice":
+            return ssml_tag['text']
+        elif ssml_tag['tag'] == "phoneme":
+            return self._add_phoneme(ssml_tag['text'], ssml_tag['attrib']['ph'])
+        elif ssml_tag['tag'] == "break":
+            return self._add_break(int(ssml_tag['attrib']['time'][:-2]))
+        elif ssml_tag['tag'] == "prosody":
+            return self._add_prosody(ssml_tag['text'], float(ssml_tag['attrib']['rate']), \
+                                     int(ssml_tag['attrib']['pitch'][:-2]), float(ssml_tag['attrib']['volume'][:-2]))
+        elif ssml_tag['tag'] == "tail":
+            return ssml_tag['text']
         else:
             return ""
 
@@ -250,19 +252,20 @@ class TextEditor(object):
         ssml_tag_list_after_check_length = []
         for tag in ssml_tag_list:
             # 檢查文字長度，同時檢查保留字，並存為新的text list
-            text_paragraph_list = self.__check_text_length(tag[3])
+            text_paragraph_list = self.__check_text_length(tag['text'])
 
             for text in text_paragraph_list:
-                ssml_tag_list_after_check_length.append([tag[0], tag[1], tag[2], self.__check_reserved_word(text._text)]) # XXX 暫時使用list
+                ssml_tag_list_after_check_length.append({"layer": tag['layer'], "tag": tag['tag'], "attrib":tag['attrib'], \
+                                                          "text": self.__check_reserved_word(text._text)})
 
         for i in range(len(ssml_tag_list_after_check_length)-1):
             ssml_text = self.ssml_tag_to_text(ssml_tag_list_after_check_length[i])
 
-            if ssml_tag_list_after_check_length[i][1] == "prosody":
+            if ssml_tag_list_after_check_length[i]['tag'] == "prosody":
                 # 偵測到prosody tag，針對prosody情境處裡tag
                 is_prosody = True
 
-                prosody_layer = ssml_tag_list_after_check_length[i][0]
+                prosody_layer = ssml_tag_list_after_check_length[i]['layer']
                 ssml_text = ssml_text[:ssml_text.rfind("</prosody")] # remove '</prosody>'
                 prosody_start_tag = ssml_text[:ssml_text.find(">")+1]
                 # print("--> start", prosody_start_tag)
@@ -271,7 +274,7 @@ class TextEditor(object):
             text_list[count] += ssml_text
 
             if is_prosody == True:
-                if ssml_tag_list_after_check_length[i+1][0] <= prosody_layer and (ssml_tag_list_after_check_length[i+1][1]!= "tail"):
+                if (ssml_tag_list_after_check_length[i+1]['layer'] <= prosody_layer) and (ssml_tag_list_after_check_length[i+1]['tag']!= "tail"):
                     # 偵測prosody tag結尾
                     is_prosody = False
                     prosody_start_tag = ""
