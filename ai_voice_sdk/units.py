@@ -4,7 +4,7 @@ import json
 import os
 
 from .config import Settings
-from .config import ConverterConfig
+from .config import ConverterConfigInternal
 from .enums import Voice
 
 class RestfulApiHandler(object):
@@ -16,7 +16,7 @@ class RestfulApiHandler(object):
 
     _server_support_json_status_code = [200, 400, 500, 503] # 401 server回傳會少帶code參數，所以暫時移除
 
-    def __init__(self, config:ConverterConfig) -> None:
+    def __init__(self, config:ConverterConfigInternal) -> None:
         self._server_url = config.get_server()
         self._token = config.get_token()
         self.voice = config.get_voice()
@@ -137,7 +137,7 @@ class RestfulApiHandler(object):
             raise Exception(f"An unexpected error occurred: {error}")
 
 
-    def update_config(self, config:ConverterConfig):
+    def update_config(self, config:ConverterConfigInternal):
         self._server_url = config.get_server()
         self._token = config.get_token()
         self.voice = config.get_voice()

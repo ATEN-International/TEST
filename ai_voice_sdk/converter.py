@@ -1,8 +1,8 @@
 import json
 import time
 
-from .enums import ConverterStatus
-from .config import ConverterConfig, Settings
+from .enums import ConverterStatus, Voice
+from .config import ConverterConfig, ConverterConfigInternal, Settings
 from .textedit import TextEditor
 from .units import RestfulApiHandler, Tools
 
@@ -64,7 +64,7 @@ class ConverterResult(object):
 
 
 class VoiceConverter(object):
-    config:ConverterConfig
+    config:ConverterConfigInternal
     text:TextEditor
     _api_handler:RestfulApiHandler
 
@@ -73,10 +73,12 @@ class VoiceConverter(object):
     _task_list = [] # [{"id": "0~XX", "text": "paragraphs"}]
     _task_each_text_limit = Settings.task_each_text_limit
 
+    __is_update_config = False
 
     def __init__(self, config = ConverterConfig()):
-        self._api_handler = RestfulApiHandler(config)
-        self.text = TextEditor(self._text)
+        self.text = TextEditor(self._text, self.__update_config_value)
+        self.config = ConverterConfigInternal(config, self.__update_api_config)
+        self._api_handler = RestfulApiHandler(self.config)
 
 
     def _translate_result_code(self, result_json:json) -> str:
@@ -119,9 +121,33 @@ class VoiceConverter(object):
         # for l in self._task_list:
         #     print(l, len(l["text"]))
 
+
+    def __voiceValueToName(self, voice_value):
+        for vo in Voice:
+            if voice_value == vo.value:
+                return vo
+
+
+    def __update_api_config(self):
+        if self.__is_update_config == False:
+            self._api_handler.update_config(self.config)
+
+
+    def __update_config_value(self, value:dict):
+        # For text editor update converter config
+        # print(self.__voiceValueToName(value['config_voice']))
+        if self.config.get_voice() == None:
+            self.config.set_voice(self.__voiceValueToName(value['config_voice']))
+
+
     # ---------- Config ----------
     def update_config(self, config:ConverterConfig):
-        self._api_handler.update_config(config)
+        self.__is_update_config = True
+        self.config.set_token(config.get_token())
+        self.config.set_server(config.get_server())
+        self.config.set_voice(config.get_voice())
+        self.__is_update_config = False
+        self.__update_api_config()
 
 
     # ---------- Task infomation ----------

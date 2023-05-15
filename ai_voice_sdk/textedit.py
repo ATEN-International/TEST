@@ -2,6 +2,7 @@
 
 import re
 import xml.etree.ElementTree as ET
+from typing import Callable
 
 from .config import Settings
 from .units import Tools
@@ -27,8 +28,13 @@ class TextEditor(object):
     __elastic_value = Settings.elastic_value
     _support_file_type = Settings.support_file_type
 
-    def __init__(self, text:list) -> None:
+    __notice_value_update: Callable[[dict], None] = None
+
+    def __init__(self, text:list, callback=None) -> None:
         self.text = text
+
+        if callback != None:
+            self.__notice_value_update = callback
 
 
     def __check_reserved_word(self, text:str) -> str:
@@ -237,9 +243,9 @@ class TextEditor(object):
 
 
     def _format_ssml_text(self, ssml_element:ET.Element) -> list:
-        ssml_tag_list = self._get_ssml_all_tags(ssml_element, 1)
         limit = self.__text_limit
 
+        ssml_tag_list = self._get_ssml_all_tags(ssml_element, 1)
         text_list = [""]
 
         count = 0
@@ -251,6 +257,11 @@ class TextEditor(object):
 
         ssml_tag_list_after_check_length = []
         for tag in ssml_tag_list:
+            # check is get voice tag and call converter to update config info as the same time
+            if tag['tag'] == "voice":
+                if self.__notice_value_update != None:
+                    self.__notice_value_update({"config_voice": tag['attrib']['name']})
+
             # 檢查文字長度，同時檢查保留字，並存為新的text list
             text_paragraph_list = self.__check_text_length(tag['text'])
 

@@ -1,3 +1,5 @@
+from typing import Callable
+
 from .enums import Voice
 
 class Settings(object):
@@ -48,7 +50,7 @@ class ConverterConfig(object):
         return self._server_url
 
 
-    def set_voice(self, voice = Voice.NOETIC) -> None:
+    def set_voice(self, voice:Voice) -> None:
         if type(voice) != Voice:
             raise TypeError("Parameter 'voice(Voice)' type error.")
 
@@ -65,3 +67,27 @@ class ConverterConfig(object):
 
     def get_ssml_lang(self) -> str:
         return self._ssml_lang
+
+
+class ConverterConfigInternal(ConverterConfig):
+    __notice_value_update: Callable[[], None] = None
+
+    def __init__(self, config:ConverterConfig, callback: Callable[[], None]) -> None:
+        self._token = config.get_token()
+        self._server_url = config.get_server()
+        self.voice = config.get_voice()
+        self._ssml_version = config.get_ssml_version()
+        self._ssml_lang = config.get_ssml_lang()
+        self.__notice_value_update = callback
+
+    def set_server(self, server_url="") -> None:
+        super().set_server(server_url)
+        self.__notice_value_update()
+
+    def set_token(self, token="") -> None:
+        super().set_token(token)
+        self.__notice_value_update()
+
+    def set_voice(self, voice: Voice) -> None:
+        super().set_voice(voice)
+        self.__notice_value_update()
