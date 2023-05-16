@@ -80,11 +80,11 @@ class ConverterConfigInternal(ConverterConfig):
         self._ssml_lang = config.get_ssml_lang()
         self.__notice_value_update = callback
 
-    def set_server(self, server_url="") -> None:
+    def set_server(self, server_url = "") -> None:
         super().set_server(server_url)
         self.__notice_value_update()
 
-    def set_token(self, token="") -> None:
+    def set_token(self, token = "") -> None:
         super().set_token(token)
         self.__notice_value_update()
 

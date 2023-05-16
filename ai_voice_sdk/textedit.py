@@ -30,7 +30,7 @@ class TextEditor(object):
 
     __notice_value_update: Callable[[dict], None] = None
 
-    def __init__(self, text:list, callback=None) -> None:
+    def __init__(self, text:list, callback = None) -> None:
         self.text = text
 
         if callback != None:
@@ -343,8 +343,9 @@ class TextEditor(object):
         self.text[position:position] = text_list
 
 
-    def add_webpage_text(self, text:str, rate:float=1.0, pitch:int=0, volume:float=0.0, position = -1):
+    def add_webpage_text(self, text:str, rate:float = 1.0, pitch:int = 0, volume:float = 0.0, position = -1):
         """
+        text    : 加入的文字\n
         rate    : 調整語速, 最小值=0.8, 最大值=1.2\n
         pitch   : 調整音調, 最小值=-2, 最大值=2\n
         volume  : 調整音量, 最小值=-6, 最大值=6\n
@@ -526,7 +527,7 @@ class TextEditor(object):
         self.text.insert(position, TextParagraph(self._add_break(break_time)))
 
 
-    def insert_prosody(self, text:str, rate:float=1.0, pitch:int=0, volume:float=0.0, position = -1):
+    def insert_prosody(self, text:str, rate:float = 1.0, pitch:int = 0, volume:float = 0.0, position = -1):
         """
         rate    : 調整語速, 最小值=0.8, 最大值=1.2\n
         pitch   : 調整音調, 最小值=-2, 最大值=2\n
@@ -558,7 +559,7 @@ class TextEditor(object):
 
 
     def insert_prosody_and_phoneme(self, text:str, ph:str, \
-                                   rate:float=1.0, pitch:int=0, volume:float=0.0, position = -1):
+                                   rate:float = 1.0, pitch:int = 0, volume:float = 0.0, position = -1):
         """
         text：需要修改發音的文字\n
          ph ：指定的發音\n
