@@ -6,7 +6,7 @@ class Settings(object):
     text_limit = 1500
     elastic_value = 200
     support_file_type = [".txt", ".ssml", ".xml"]
-    task_each_text_limit = text_limit + elastic_value
+    each_task_text_limit = text_limit + elastic_value
     print_log = False
 
 class ConverterConfig(object):
@@ -67,27 +67,3 @@ class ConverterConfig(object):
 
     def get_ssml_lang(self) -> str:
         return self._ssml_lang
-
-
-class ConverterConfigInternal(ConverterConfig):
-    __notice_value_update: Callable[[], None] = None
-
-    def __init__(self, config:ConverterConfig, callback: Callable[[], None]) -> None:
-        self._token = config.get_token()
-        self._server_url = config.get_server()
-        self.voice = config.get_voice()
-        self._ssml_version = config.get_ssml_version()
-        self._ssml_lang = config.get_ssml_lang()
-        self.__notice_value_update = callback
-
-    def set_server(self, server_url = "") -> None:
-        super().set_server(server_url)
-        self.__notice_value_update()
-
-    def set_token(self, token = "") -> None:
-        super().set_token(token)
-        self.__notice_value_update()
-
-    def set_voice(self, voice: Voice) -> None:
-        super().set_voice(voice)
-        self.__notice_value_update()

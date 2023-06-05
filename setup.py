@@ -6,9 +6,9 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setuptools.setup(
     name="ai-voice-sdk",
     version="0.0.1",
-    author="yimin",
+    author="ATEN-International",
     author_email="no@example.com",
-    description="This is aten ai voice sdk",
+    description="Aten AI Voice SDK",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(),
@@ -20,6 +20,5 @@ setuptools.setup(
     python_requires='>=3.7',
     install_requires=[
         'requests',
-        # 'python-magic-bin==0.4.14',
     ],
 )

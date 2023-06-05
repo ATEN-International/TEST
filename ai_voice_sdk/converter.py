@@ -1,8 +1,9 @@
 import json
 import time
+import copy
 
 from .enums import ConverterStatus, Voice
-from .config import ConverterConfig, ConverterConfigInternal, Settings
+from .config import ConverterConfig, Settings
 from .textedit import TextEditor
 from .units import RestfulApiHandler, Tools
 
@@ -74,21 +75,19 @@ class ConverterResult(object):
 
 
 class VoiceConverter(object):
-    config:ConverterConfigInternal
+    config:ConverterConfig
     text:TextEditor
     _api_handler:RestfulApiHandler
 
     _text = []
 
     _task_list = [] # [{"id": "0~XX", "text": "paragraphs"}]
-    _task_each_text_limit = Settings.task_each_text_limit
-
-    __is_update_config = False
+    _each_task_text_limit = Settings.each_task_text_limit
 
     def __init__(self, config = ConverterConfig()):
-        self.text = TextEditor(self._text, self.__update_config_value)
-        self.config = ConverterConfigInternal(config, self.__update_api_config)
+        self.config = copy.deepcopy(config)
         self._api_handler = RestfulApiHandler(self.config)
+        self.text = TextEditor(self._text, self.__update_config_value)
 
 
     def _translate_result_code(self, result_json:json) -> str:
@@ -114,7 +113,7 @@ class VoiceConverter(object):
         for i in range(len(self._text)-1):
             length += self._text[i]._length
             self._task_list[count]["text"] += (self._text[i]._text)
-            if length + self._text[i+1]._length > self._task_each_text_limit:
+            if length + self._text[i+1]._length > self._each_task_text_limit:
                 # print(f"over limit in {i} | {self._text[i]._text} | {length}")
                 self._task_list.append({"id": "", "text": ""})
                 count += 1
@@ -122,7 +121,7 @@ class VoiceConverter(object):
 
         if len(self._text) > 1:
             i += 1
-        if length + self._text[i]._length > self._task_each_text_limit:
+        if length + self._text[i]._length > self._each_task_text_limit:
             self._task_list.append({"id": "", "text": self._text[i]._text})
         else:
             self._task_list[count]["text"] += self._text[i]._text
@@ -131,33 +130,30 @@ class VoiceConverter(object):
         # for l in self._task_list:
         #     print(l, len(l["text"]))
 
+    # ---------- Config ----------
 
-    def __voiceValueToName(self, voice_value):
+    def __voice_value_to_name(self, voice_value):
         for vo in Voice:
             if voice_value == vo.value:
                 return vo
 
 
-    def __update_api_config(self):
-        if self.__is_update_config == False:
-            self._api_handler.update_config(self.config)
-
-
     def __update_config_value(self, value:dict):
         # For text editor update converter config
-        # print(self.__voiceValueToName(value['config_voice']))
         if self.config.get_voice() == None:
-            self.config.set_voice(self.__voiceValueToName(value['config_voice']))
+            self.config.set_voice(self.__voice_value_to_name(value['config_voice']))
 
 
-    # ---------- Config ----------
     def update_config(self, config:ConverterConfig):
-        self.__is_update_config = True
+        """
+        config：轉換器設定檔
+        """
+        if type(config) != ConverterConfig:
+            raise TypeError("Parameter 'config(ConverterConfig)' type error.")
+
         self.config.set_token(config.get_token())
         self.config.set_server(config.get_server())
         self.config.set_voice(config.get_voice())
-        self.__is_update_config = False
-        self.__update_api_config()
 
 
     # ---------- Task infomation ----------
@@ -250,7 +246,7 @@ class VoiceConverter(object):
         if len(task_data) == 0:
             task_data.append({"id": "0", "data": None})
 
-        # status = ConverterStatus.ConverVoiceFail
+        # ConverVoiceFail
         return ConverterResult(ConverterStatus.ConverVoiceFail, task_data, "", error_msg)
 
 

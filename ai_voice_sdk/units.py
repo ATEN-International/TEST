@@ -1,14 +1,14 @@
-# import magic
 import requests
 import json
 import wave
 import io
 
 from .config import Settings
-from .config import ConverterConfigInternal
+from .config import ConverterConfig
 from .enums import Voice
 
 class RestfulApiHandler(object):
+    _config:ConverterConfig
     _server_url:str
     _token:str
     voice:Voice
@@ -17,7 +17,8 @@ class RestfulApiHandler(object):
 
     _server_support_json_status_code = [200, 400, 500, 503] # 401 server回傳會少帶code參數，所以暫時移除
 
-    def __init__(self, config:ConverterConfigInternal) -> None:
+    def __init__(self, config:ConverterConfig) -> None:
+        self._config = config
         self._server_url = config.get_server()
         self._token = config.get_token()
         self.voice = config.get_voice()
@@ -26,8 +27,8 @@ class RestfulApiHandler(object):
 
 
     def _restful_sender(self, api_url:str, payload:map) -> requests.models.Response:
-        url = f"{self._server_url}{api_url}"
-        headers = {'content-type': 'application/json', 'Authorization': f'Bearer {self._token}'}
+        url = f"{self._config.get_server()}{api_url}"
+        headers = {'content-type': 'application/json', 'Authorization': f'Bearer {self._config.get_token()}'}
         return requests.post(url, headers=headers, json=payload, timeout=10)
 
 
@@ -62,20 +63,18 @@ class RestfulApiHandler(object):
 
 
     def add_text_task(self, text:str) -> json:
-        if self.voice == None:
+        if self._config.voice.value == None:
             raise RuntimeError("Converter voice is 'None'")
 
         api_url = "/api/v1.0/syn/syn_text"
         payload = {
-            "orator_name": self.voice.value,
+            "orator_name": self._config.voice.value,
             "text": text
         }
 
-        # print(f"payload length(text): {len(payload['orator_name'])+len(payload['text'])}, content length: {len(payload['text'])}")
         if len(payload['text']) > 2000:
             return {"data": "字數超過限制值", "code": 40010}
 
-        # result = self._restful_sender(api_url, payload)
         try:
             result = self._restful_sender(api_url, payload)
             return self._response_handler(result)
@@ -84,13 +83,13 @@ class RestfulApiHandler(object):
 
 
     def add_ssml_task(self, ssml_text:str) -> json:
-        if self.voice == None:
+        if self._config.voice.value == None:
             raise RuntimeError("Converter voice is 'None'")
 
         api_url = "/api/v1.0/syn/syn_ssml"
         payload = {
-            "ssml": f'<speak xmlns="http://www.w3.org/2001/10/synthesis" version="{self._ssml_version}" xml:lang="{self._ssml_lang}">\
-<voice name="{self.voice.value}">\
+            "ssml": f'<speak xmlns="http://www.w3.org/2001/10/synthesis" version="{self._config.get_ssml_version()}" xml:lang="{self._config.get_ssml_lang()}">\
+<voice name="{self._config.voice.value}">\
 {ssml_text}\
 </voice></speak>'
         }
@@ -138,14 +137,6 @@ class RestfulApiHandler(object):
             raise Exception(f"An unexpected error occurred: {error}")
 
 
-    def update_config(self, config:ConverterConfigInternal):
-        self._server_url = config.get_server()
-        self._token = config.get_token()
-        self.voice = config.get_voice()
-        self._ssml_version = config.get_ssml_version()
-        self._ssml_lang = config.get_ssml_lang()
-
-
 class Tools(object):
 
     def __init__(self) -> None:
@@ -176,12 +167,6 @@ class Tools(object):
             writer.close()
         except Exception:
             raise IOError("Merge wav file fail.")
-
-
-    # def _check_wav_type(self, wav_content:bytes) -> bool:
-    #     if magic.from_buffer(wav_content, mime=True) == "audio/x-wav":
-    #         return True
-    #     return False
 
 
     def open_file(self, file_path:str, encode = "utf-8") -> str:
