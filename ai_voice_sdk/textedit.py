@@ -226,7 +226,7 @@ class TextEditor(object):
 
 
 
-    def ssml_tag_to_text(self, ssml_tag:dict) -> str:
+    def _ssml_tag_to_text(self, ssml_tag:dict) -> str:
         if ssml_tag['tag'] == "voice":
             return ssml_tag['text']
         elif ssml_tag['tag'] == "phoneme":
@@ -253,7 +253,7 @@ class TextEditor(object):
         i = 0
         is_prosody = False
         prosody_layer = 1
-        prosody_start_tag = ""
+        prosody_tag_info = ""
 
         ssml_tag_list_after_check_length = []
         for tag in ssml_tag_list:
@@ -270,7 +270,7 @@ class TextEditor(object):
                                                           "text": self.__check_reserved_word(text._text)})
 
         for i in range(len(ssml_tag_list_after_check_length)-1):
-            ssml_text = self.ssml_tag_to_text(ssml_tag_list_after_check_length[i])
+            ssml_text = self._ssml_tag_to_text(ssml_tag_list_after_check_length[i])
 
             if ssml_tag_list_after_check_length[i]['tag'] == "prosody":
                 # 偵測到prosody tag，針對prosody情境處裡tag
@@ -278,22 +278,25 @@ class TextEditor(object):
 
                 prosody_layer = ssml_tag_list_after_check_length[i]['layer']
                 ssml_text = ssml_text[:ssml_text.rfind("</prosody")] # remove '</prosody>'
-                prosody_start_tag = ssml_text[:ssml_text.find(">")+1]
+                prosody_tag_info = ssml_text[:ssml_text.find(">")+1]
                 # print("--> start", prosody_start_tag)
 
             length += len(ssml_text)
             text_list[count] += ssml_text
 
             if is_prosody == True:
-                if (ssml_tag_list_after_check_length[i+1]['layer'] <= prosody_layer) and (ssml_tag_list_after_check_length[i+1]['tag']!= "tail"):
-                    # 偵測prosody tag結尾
-                    is_prosody = False
-                    prosody_start_tag = ""
-                    # print("--> add end tad </prosody>")
-                    length += len("</prosody>")
-                    text_list[count] += "</prosody>"
+                if ssml_tag_list_after_check_length[i+1]['layer'] <= prosody_layer:
+                    if (ssml_tag_list_after_check_length[i+1]['layer'] == prosody_layer) and (ssml_tag_list_after_check_length[i+1]['tag'] == "tail"):
+                        pass
+                    else:
+                        # 偵測prosody tag結尾
+                        is_prosody = False
+                        prosody_tag_info = ""
+                        # print("--> add end tad </prosody>")
+                        length += len("</prosody>")
+                        text_list[count] += "</prosody>"
 
-            if length + len(self.ssml_tag_to_text(ssml_tag_list_after_check_length[i+1])) > limit:
+            if length + len(self._ssml_tag_to_text(ssml_tag_list_after_check_length[i+1])) > limit:
                 # Add new text element
                 text_list.append("")
                 count += 1
@@ -302,21 +305,22 @@ class TextEditor(object):
                 # Add prosody end tag to previous text
                 if is_prosody == True:
                     text_list[count-1] += "</prosody>"
-                    text_list[count] += prosody_start_tag # Add prosody header tag
+                    text_list[count] += prosody_tag_info # Add prosody header tag
                 # ========================================
 
         if len(ssml_tag_list_after_check_length) > 1:
             i += 1
 
-        end_tag = ""
+        end_symbol = ""
         if is_prosody == True:
-            end_tag = "</prosody>"
+            end_symbol = "</prosody>"
 
-        last_text = self.ssml_tag_to_text(ssml_tag_list_after_check_length[i])
+        last_text = self._ssml_tag_to_text(ssml_tag_list_after_check_length[i])
         if length + len(last_text) > limit:
-            text_list.append((last_text + end_tag))
+            text_list[count] += end_symbol
+            text_list.append((prosody_tag_info + last_text + end_symbol))
         else:
-            text_list[count] = text_list[count] + last_text + end_tag
+            text_list[count] = text_list[count] + last_text + end_symbol
 
         return text_list
 
@@ -385,7 +389,6 @@ class TextEditor(object):
                     text_list[count+1:count+1] = [TextParagraph(text_each._text[tag[1]:])]
                     text_each._text = text_each._text[:tag[1]]
                     break
-            count += 1
 
             # rematch
             shift = 0
@@ -408,6 +411,7 @@ class TextEditor(object):
                 shift += len(new_tag) - rematch.end() + rematch.start()
 
             text_each.update(self._add_prosody(new_text, rate, pitch, volume))
+            count += 1
 
         self.text[position:position] = text_list
 
@@ -444,6 +448,9 @@ class TextEditor(object):
 
 
     def get_text(self) -> list:
+        """
+        獲得文章清單
+        """
         if len(self.text) < 1:
             print("Text is empty.")
 
@@ -454,6 +461,9 @@ class TextEditor(object):
 
 
     def show(self):
+        """
+        顯示文章清單
+        """
         if len(self.text) < 1:
             print("Text is empty.")
 
@@ -471,7 +481,7 @@ class TextEditor(object):
 
         text_length = len(self.text)
         if text_length == 0:
-            print("[INTO] Text is enpty.")
+            print("Text is enpty.")
             return True
 
         if text_length < position:
@@ -482,6 +492,9 @@ class TextEditor(object):
 
 
     def clear(self):
+        """
+        清除文章所有內容
+        """
         self.text.clear()
 
 
@@ -604,7 +617,7 @@ class TextEditor(object):
 
         extension = file_path[file_path.rfind('.'):]
         if extension in self._support_file_type == False:
-            raise TypeError(f"Open file '{file_path}' fail.")
+            raise TypeError(f"Not support '{extension}' type.")
 
         text = Tools().open_file(file_path, encode)
 

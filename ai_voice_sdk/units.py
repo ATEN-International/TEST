@@ -9,22 +9,11 @@ from .enums import Voice
 
 class RestfulApiHandler(object):
     _config:ConverterConfig
-    _server_url:str
-    _token:str
-    voice:Voice
-    _ssml_version:str
-    _ssml_lang:str
 
     _server_support_json_status_code = [200, 400, 500, 503] # 401 server回傳會少帶code參數，所以暫時移除
 
     def __init__(self, config:ConverterConfig) -> None:
         self._config = config
-        self._server_url = config.get_server()
-        self._token = config.get_token()
-        self.voice = config.get_voice()
-        self._ssml_version = config.get_ssml_version()
-        self._ssml_lang = config.get_ssml_lang()
-
 
     def _restful_sender(self, api_url:str, payload:map) -> requests.models.Response:
         url = f"{self._config.get_server()}{api_url}"

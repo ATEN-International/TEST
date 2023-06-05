@@ -31,13 +31,14 @@ API == v1.x
 ### 安裝
  - 透過`pip`安裝SDK
 ```shell
-pip install ai_voice_sdk
+pip install ai-voice-sdk
 ```
 
  - 手動安裝SDK
 ```shell
 git clone https://github.com/ATEN-International/ai-voice-sdk-python.git
 cd ai-voice-sdk-python
+python -m pip install wheel
 python setup.py sdist bdist_wheel # 建立SDK安裝檔
 pip install dist/ai_voice_sdk-0.0.1-py3-none-any.whl # 安裝SDK
 ```
