@@ -1,5 +1,3 @@
-from typing import Callable
-
 from .enums import Voice
 
 class Settings(object):
