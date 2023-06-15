@@ -43,7 +43,7 @@ git clone https://github.com/ATEN-International/ai-voice-sdk-python.git
 cd ai-voice-sdk-python
 python -m pip install wheel
 python setup.py sdist bdist_wheel # 建立SDK安裝檔
-pip install dist/ai_voice_sdk-0.0.1-py3-none-any.whl # 安裝SDK
+pip install dist/ai_voice_sdk-x.x.x-py3-none-any.whl # 安裝SDK，其中 'x.x.x' 填入現在的版本號
 ```
 <br><br>
 

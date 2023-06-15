@@ -16,10 +16,7 @@ class ConverterConfig(object):
     _ssml_lang = "zh-TW"
 
     def __init__(self, token = "", server_url = "https://www.aivoice.com.tw") -> None:
-        if type(token) != str:
-            raise TypeError("Parameter 'token(str)' type error.")
-
-        self._token = token
+        self.set_token(token)
         self.set_server(server_url)
 
 
