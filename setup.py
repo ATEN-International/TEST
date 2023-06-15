@@ -5,9 +5,10 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="ai-voice-sdk",
-    version="0.0.1",
+    version="0.0.2",
     author="ATEN-International",
-    author_email="no@example.com",
+    author_email="rdmaten@aten.com.tw",
+    url="https://github.com/ATEN-International/ai-voice-sdk-python",
     description="Aten AI Voice SDK",
     long_description=long_description,
     long_description_content_type="text/markdown",

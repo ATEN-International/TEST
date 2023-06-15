@@ -48,8 +48,5 @@ pip install dist/ai_voice_sdk-0.0.1-py3-none-any.whl # 安裝SDK
 ```
 <br><br>
 
-### 教學課程 [tutorial](./tutorial.ipynb)
-<br><br>
-
-### 更多範例 [example code](./examples)
+### 教學課程 [tutorial](./examples/tutorial.ipynb)
 <br><br>
